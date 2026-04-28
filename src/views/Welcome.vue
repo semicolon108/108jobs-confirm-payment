@@ -24,7 +24,7 @@
                         </svg>
                     </div>
 
-                    <h2 class="card-title">Please go to your mailbox or WhatsApp and click the confirmation link again</h2>
+                    <h2 class="card-title">Please go to your Mailbox or WhatsApp and click the confirmation link again</h2>
                     <p class="card-description">
                         To access your invoice and receipt details, please check your spam folder if you don't see the
                         email.
