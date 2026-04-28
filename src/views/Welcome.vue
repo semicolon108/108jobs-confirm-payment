@@ -8,7 +8,6 @@
                 </div>
                 <h1 class="hello-title">Welcome to Confirmation Payment</h1>
             </header>
-
             <!-- Main Content -->
             <main class="hello-content">
                 <section class="welcome-card">
