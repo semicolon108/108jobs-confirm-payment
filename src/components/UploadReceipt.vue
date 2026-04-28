@@ -201,6 +201,10 @@ async function handleConfirm() {
   background: #f0f7ff;
 }
 
+.dropzone:hover .dropzone-icon svg path {
+  stroke: #3b82f6;
+}
+
 .dropzone--active {
   border-color: #3b82f6;
   background: #eff6ff;
@@ -232,7 +236,6 @@ async function handleConfirm() {
   font-size: 0.72rem;
   color: #94a3b8;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
 }
 
 /* Uploaded Files */
