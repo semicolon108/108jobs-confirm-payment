@@ -8,6 +8,7 @@
                 </div>
                 <h1 class="hello-title">Welcome to Confirmation Payment</h1>
             </header>
+
             <!-- Main Content -->
             <main class="hello-content">
                 <section class="welcome-card">
@@ -80,14 +81,7 @@
 </template>
 
 <script setup lang="ts">
-import { useRouter } from 'vue-router'
-
-const router = useRouter()
-
-function handlePaymentClick() {
-    // Navigate to home page (will be redirected to hello if no companyId)
-    router.push({ name: 'home' })
-}
+// Welcome page - no functionality needed
 </script>
 
 <style scoped>
