@@ -80,6 +80,7 @@
     </div>
 </template>
 
+
 <script setup lang="ts">
 // Welcome page - no functionality needed
 </script>
