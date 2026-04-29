@@ -78,8 +78,17 @@
         </template>
       </div>
 
+      <!-- Validation Message -->
+      <div v-if="!selectedBank" class="validation-message">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+          <path d="M12 9V13M12 17H12.01M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" 
+            stroke="#F59E0B" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        Please select a bank to confirm payment
+      </div>
+
       <button class="btn btn-confirm" :class="{ 'btn--loading': isSubmitting }"
-        :disabled="uploadedFiles.length === 0 || isSubmitting" @click="handleConfirm">
+        :disabled="uploadedFiles.length === 0 || !selectedBank || isSubmitting" @click="handleConfirm">
         <template v-if="!isSubmitting">
           Confirm Payment
         </template>
@@ -567,6 +576,38 @@ onMounted(() => {
   border-top-color: #ffffff;
   border-radius: 50%;
   animation: spin 0.7s linear infinite;
+}
+
+/* Validation Message */
+.validation-message {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  background: #FEF3C7;
+  border: 1px solid #FCD34D;
+  border-radius: 8px;
+  color: #92400E;
+  font-size: 0.875rem;
+  font-weight: 500;
+  animation: slideDown 0.3s ease-out;
+}
+
+.validation-message svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @keyframes spin {
