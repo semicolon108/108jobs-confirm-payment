@@ -2,7 +2,7 @@
  * Authentication utilities for companyId management
  */
 
-export const COMPANY_ID_KEY = 'companyId'
+export const COMPANY_ID_KEY = 'paymentCode'
 
 /**
  * Check and set companyId from query parameters to localStorage
@@ -10,7 +10,7 @@ export const COMPANY_ID_KEY = 'companyId'
  * @returns boolean - true if companyId was found and set, false otherwise
  */
 export function setCompanyIdFromQuery(urlParams: URLSearchParams): boolean {
-  const companyId = urlParams.get('companyId')
+  const companyId = urlParams.get('paymentCode')
   
   if (companyId) {
     localStorage.setItem(COMPANY_ID_KEY, companyId)

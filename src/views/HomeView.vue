@@ -1,45 +1,41 @@
 <template>
   <div class="page-wrapper">
+    <LogoLoading v-if="isloading" />
     <div class="page-container">
       <!-- Header -->
       <header class="page-header">
         <div class="header-icon">
-          <!-- <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M12 2L3 7V12C3 16.97 6.84 21.56 12 22.97C17.16 21.56 21 16.97 21 12V7L12 2Z" fill="#3B82F6"
-              opacity="0.15" />
-            <path
-              d="M12 2L3 7V12C3 16.97 6.84 21.56 12 22.97C17.16 21.56 21 16.97 21 12V7L12 2ZM19 12C19 16.15 16.12 19.92 12 21.08C7.88 19.92 5 16.15 5 12V8.3L12 4.19L19 8.3V12Z"
-              fill="#3B82F6" />
-            <path d="M10.5 13.5L8.5 11.5L7.5 12.5L10.5 15.5L16.5 9.5L15.5 8.5L10.5 13.5Z" fill="#3B82F6" />
-          </svg> -->
           <img src="../../public/108.Jobs-Logo.svg" alt="">
         </div>
         <h1 class="page-title">Confirm Payment</h1>
-        <p class="page-subtitle">Company Name</p>
+        <p class="page-subtitle">{{ invoice?.companyName || 'Company Name' }}</p>
       </header>
 
       <!-- Step 1: Upload Receipt -->
-      <UploadReceipt v-if="status === 'upload'" @confirm="onPaymentConfirmed" />
+      <UploadReceipt v-if="!['paid', 'pending'].includes(invoice?.paymentStatus)" @confirm="onPaymentConfirmed"
+        @upload-error="onUploadError" />
 
       <!-- Step 2: Waiting for Admin Verification -->
-      <PaymentPending v-else-if="status === 'pending'" :files="confirmedFiles" />
+      <PaymentPending v-else-if="invoice?.paymentStatus === 'pending'" :files="confirmedFiles" />
 
       <!-- Step 3: Upload Complete / Approved -->
-      <UploadComplete v-else-if="status === 'approved'" :files="confirmedFiles" />
+      <UploadComplete v-else-if="invoice?.paymentStatus === 'paid'" :files="confirmedFiles" :data="invoice"
+        @loading="handleReceiptLoading" />
 
       <!-- Invoice Summary Card -->
-      <section class="card invoice-card">
+      <section class="card invoice-card" v-if="invoice">
         <div class="card-content">
           <!-- Total & Due Date -->
           <div class="invoice-header">
             <div class="invoice-total">
               <span class="invoice-total-label">TOTAL DUE</span>
-              <span class="invoice-total-amount">${{ formatAmount(invoice.totalDue) }}</span>
+              <span class="invoice-total-amount" v-if="invoice?.grandTotal">LAK {{ formatAmount(invoice?.grandTotal)
+              }}</span>
             </div>
             <div class="invoice-due-date">
               <span class="invoice-due-label">DUE DATE</span>
               <span class="invoice-due-value" :class="{ 'overdue': isOverdue }">
-                {{ formatDate(invoice.dueDate) }}
+                {{ formatDate(invoice?.overDue) }}
               </span>
             </div>
           </div>
@@ -48,11 +44,11 @@
           <div class="invoice-details">
             <div class="detail-row">
               <span class="detail-label">Invoice Number</span>
-              <span class="detail-value">{{ invoice.invoiceNumber }}</span>
+              <span class="detail-value">{{ invoice?.invoice_no }}</span>
             </div>
             <div class="detail-row">
               <span class="detail-label">Issue Date</span>
-              <span class="detail-value">{{ formatDate(invoice.issueDate) }}</span>
+              <span class="detail-value">{{ formatDate(invoice?.invoiceDate) }}</span>
             </div>
           </div>
 
@@ -60,11 +56,11 @@
           <div class="invoice-breakdown">
             <div class="detail-row">
               <span class="detail-label">Subtotal</span>
-              <span class="detail-value">${{ formatAmount(invoice.subtotal) }}</span>
+              <span class="detail-value" v-if="invoice?.subTotal">LAK {{ formatAmount(invoice.subTotal) }}</span>
             </div>
             <div class="detail-row">
-              <span class="detail-label">VAT ({{ invoice.vatPercent }}%)</span>
-              <span class="detail-value">${{ formatAmount(invoice.vatAmount) }}</span>
+              <span class="detail-label" v-if="invoice?.vat">VAT ({{ invoice.vat }}%)</span>
+              <span class="detail-value" v-if="invoice?.vatTotal">LAK {{ formatAmount(invoice.vatTotal) }}</span>
             </div>
           </div>
 
@@ -92,62 +88,171 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
+import dayjs from 'dayjs'
 import UploadReceipt from '@/components/UploadReceipt.vue'
 import PaymentPending from '@/components/PaymentPending.vue'
 import UploadComplete from '@/components/UploadComplete.vue'
+import axios from '@/services/axios'
+import LogoLoading from '@/components/LogoLoading.vue'
 
-// --- State ---
-type Status = 'upload' | 'pending' | 'approved'
-const status = ref<Status>('upload')
-const confirmedFiles = ref<{ name: string; size: number; file: File }[]>([])
+const confirmedFiles = ref<any[]>([])
 
-const invoice = ref({
-  totalDue: 4950.0,
-  dueDate: '2026-05-12',
-  invoiceNumber: 'INV-2026-0428',
-  issueDate: '2026-04-28',
-  subtotal: 4500.0,
-  vatPercent: 10,
-  vatAmount: 450.0,
-})
+const invoice = ref<any>({})
 
 const isOverdue = computed(() => {
-  return new Date(invoice.value.dueDate) < new Date()
+  return new Date(invoice.value?.dueDate) < new Date()
 })
 
 // --- Formatting ---
 function formatAmount(value: number): string {
   return value.toLocaleString('en-US', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
   })
 }
 
 function formatDate(dateStr: string): string {
-  const date = new Date(dateStr + 'T00:00:00')
-  return date.toLocaleDateString('en-US', {
-    month: 'long',
-    day: 'numeric',
-    year: 'numeric',
-  })
+  if (!dateStr) return ''
+  return dayjs(dateStr).format('MMMM D, YYYY')
 }
+
+const isloading = ref<any>(false)
+const statusCheckInterval = ref<any>(null)
+const previousPaymentStatus = ref<string>('')
 
 // --- Actions ---
-function onPaymentConfirmed(files: File[]) {
-  confirmedFiles.value = files.map((f) => ({ name: f.name, size: f.size, file: f }))
-  status.value = 'pending'
 
-  // Simulate admin approval after a delay
-  setTimeout(() => {
-    status.value = 'approved'
-  }, 8000)
+function onUploadError(error: any) {
+  alert('Failed to upload receipt. Please try again.')
 }
 
-function downloadInvoice() {
-  // Placeholder for download logic
-  alert('Downloading invoice...')
+function handleReceiptLoading(isLoading: boolean) {
+  isloading.value = isLoading
 }
+
+const startStatusCheck = () => {
+  // Clear any existing interval
+  if (statusCheckInterval.value) {
+    clearInterval(statusCheckInterval.value)
+  }
+
+  // Only start interval if status is pending
+  if (invoice.value?.paymentStatus === 'pending') {
+    // Store initial status
+    previousPaymentStatus.value = invoice.value?.paymentStatus || ''
+
+    // Check status every 5 seconds
+    statusCheckInterval.value = setInterval(async () => {
+      const paymentCode: any = localStorage.getItem('paymentCode')
+      if (paymentCode) {
+        await getInvoiceUrl(paymentCode)
+        
+        // Stop interval if status is no longer pending
+        if (invoice.value?.paymentStatus !== 'pending') {
+          stopStatusCheck()
+          return
+        }
+        
+        // Update previous status
+        previousPaymentStatus.value = invoice.value?.paymentStatus || ''
+      }
+    }, 15000) // Check every 5 seconds
+  } else {
+    console.log('Payment status is not pending, not starting status check')
+  }
+}
+
+const stopStatusCheck = () => {
+  if (statusCheckInterval.value) {
+    clearInterval(statusCheckInterval.value)
+    statusCheckInterval.value = null
+  } else {
+    console.log('No active interval to stop')
+  }
+}
+
+const onPaymentConfirmed = async (data: { files: any[], selectedBank: any }) => {
+  try {
+    isloading.value = true
+    const form = {
+      _id: invoice.value._id,
+      file: data.files,
+      bankId: data.selectedBank._id
+    }
+    const response = await axios.post('/submit-invoice-payslip', form)
+
+    // console.log('Payment confirmed with:', response.data.message)
+    if (response.data) {
+      const paymentCode: any = localStorage.getItem('paymentCode')
+      await getInvoiceUrl(paymentCode)
+    }
+  } catch (error) {
+    console.error('Error confirming payment:', error)
+  } finally {
+    isloading.value = false
+  }
+}
+
+const downloadInvoice = async () => {
+  try {
+    isloading.value = true
+    const { _id } = invoice.value
+    if (!_id) {
+      console.error('No invoice ID found')
+      return
+    }
+    const response = await axios.get(`/generate-invoice-or-receipt/${_id}?type=invoice`)
+    // Handle direct URL response from backend
+    if (response.data) {
+      const link = document.createElement('a')
+      link.href = response.data
+      link.target = '_blank'
+      link.download = `invoice-${_id}.pdf`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+    }
+  } catch (error) {
+    console.error(error)
+  } finally {
+    isloading.value = false
+  }
+}
+
+const getInvoiceUrl = async (paymentCode: string) => {
+  try {
+    const body = {
+      paymentCode: paymentCode
+    }
+    const response = await axios.post('/get-invoice-by-payment-code', body)
+    invoice.value = response.data?.invoice
+    confirmedFiles.value = response.data?.invoice?.payslip || []
+    
+    // Start status check if payment status is pending
+    if (invoice.value?.paymentStatus === 'pending') {
+      startStatusCheck()
+    }
+  } catch (error) {
+    console.error(error)
+    return null
+  }
+}
+
+onMounted(() => {
+  const paymentCode: any = localStorage.getItem('paymentCode')
+  if (paymentCode) {
+    getInvoiceUrl(paymentCode)
+  }
+})
+
+onUnmounted(() => {
+  // Clean up interval when component is destroyed
+  stopStatusCheck()
+})
+
+
+
 </script>
 
 <style scoped>

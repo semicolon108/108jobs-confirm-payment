@@ -1,6 +1,35 @@
 <template>
   <section class="card upload-card">
     <div class="card-content">
+      <!-- Bank Selection -->
+      <div class="bank-section">
+        <label class="upload-label">
+          Select Bank <span class="required">*</span>
+        </label>
+        <div class="bank-grid">
+          <div v-for="bank in bankInfo" :key="bank._id" class="bank-item"
+            :class="{ 'bank-item--selected': selectedBank?._id === bank._id }" @click="selectBank(bank)">
+            <img :src="bank.bankLogo" :alt="bank.bankName" class="bank-logo">
+          </div>
+        </div>
+      </div>
+
+      <!-- QR Code Display -->
+      <div v-if="selectedBank" class="qr-section">
+        <label class="upload-label">
+          QR Code for Payment
+        </label>
+        <div class="qr-container">
+          <img :src="selectedBank.bankQR" :alt="`${selectedBank.bankName} QR Code`" class="qr-code">
+          <div class="qr-info">
+            <p class="account-name">{{ selectedBank.bankAccountName }}</p>
+            <p class="account-number">{{ selectedBank.bankAccountNumber }}</p>
+            <p class="currency">{{ selectedBank.currency }}</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Upload Section -->
       <label class="upload-label">
         Upload Receipt <span class="required">*</span>
       </label>
@@ -36,8 +65,7 @@
                 </svg>
               </div>
               <div class="file-details">
-                <span class="file-name">{{ file.name }}</span>
-                <span class="file-size">{{ formatFileSize(file.size) }}</span>
+                <span class="file-name">{{ file.split('/').pop() || file }}</span>
               </div>
               <button class="file-remove" @click.stop="removeFile(index)">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
@@ -65,80 +93,133 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
+import axios from '@/services/axios'
 
 const emit = defineEmits<{
-  confirm: [files: File[]]
+  confirm: [data: { files: any[], selectedBank: any }]
+  uploadSuccess: [response: any]
+  uploadError: [error: any]
 }>()
 
 // --- State ---
 const fileInput = ref<HTMLInputElement | null>(null)
 const isDragOver = ref(false)
 const isSubmitting = ref(false)
-const uploadedFiles = ref<File[]>([])
+const uploadedFiles = ref<any[]>([]) // API response data instead of File objects
+const bankInfo = ref<any[]>([])
+const selectedBank = ref<any>(null)
+const showBankDropdown = ref(false)
 
-// --- Formatting ---
-function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return bytes + ' B'
-  if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB'
-  return (bytes / 1048576).toFixed(1) + ' MB'
+const selectBank = (bank: any) => {
+  selectedBank.value = bank
+  showBankDropdown.value = false
 }
 
 // --- File handling ---
-function triggerFileInput() {
+const triggerFileInput = () => {
   fileInput.value?.click()
 }
 
-function onFileSelect(event: Event) {
+const onFileSelect = (event: Event) => {
   const target = event.target as HTMLInputElement
   if (target.files) {
     addFiles(Array.from(target.files))
   }
 }
 
-function onDragEnter() {
+const onDragEnter = () => {
   isDragOver.value = true
 }
 
-function onDragOver() {
+const onDragOver = () => {
   isDragOver.value = true
 }
 
-function onDragLeave() {
+const onDragLeave = () => {
   isDragOver.value = false
 }
 
-function onDrop(event: DragEvent) {
+const onDrop = (event: DragEvent) => {
   isDragOver.value = false
   if (event.dataTransfer?.files) {
     addFiles(Array.from(event.dataTransfer.files))
   }
 }
 
-function addFiles(files: File[]) {
-  const allowed = ['application/pdf', 'image/png', 'image/jpeg']
-  const maxSize = 10 * 1024 * 1024 // 10MB
+const uploadFiles = async (files: File[]) => {
+  try {
+    isSubmitting.value = true
 
-  for (const file of files) {
-    if (!allowed.includes(file.type)) continue
-    if (file.size > maxSize) continue
-    uploadedFiles.value.push(file)
+    // Create FormData for file upload
+    const formData = new FormData()
+    files.forEach((file) => {
+      formData.append('files', file)
+    })
+
+    // Upload files to API
+    const response = await axios.post('/upload-payslip', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    })
+
+    // Update uploadedFiles with data from API response
+    if (response.data && response.data.fileKey) {
+      uploadedFiles.value.push(response.data.fileKey)
+    }
+
+  } catch (error) {
+    console.error('Upload failed:', error)
+    emit('uploadError', error)
+  } finally {
+    isSubmitting.value = false
   }
 }
 
-function removeFile(index: number) {
+const addFiles = (files: File[]) => {
+  const allowed = ['application/pdf', 'image/png', 'image/jpeg']
+  const maxSize = 10 * 1024 * 1024 // 10MB
+
+  const validFiles: File[] = []
+  for (const file of files) {
+    if (!allowed.includes(file.type)) continue
+    if (file.size > maxSize) continue
+    validFiles.push(file)
+  }
+
+  // Upload files immediately if valid files exist
+  if (validFiles.length > 0) {
+    uploadFiles(validFiles)
+  }
+}
+
+const removeFile = (index: number) => {
+  // Remove from local array only - no API call needed
   uploadedFiles.value.splice(index, 1)
 }
 
 // --- Actions ---
-async function handleConfirm() {
+const handleConfirm = () => {
   if (uploadedFiles.value.length === 0) return
-  isSubmitting.value = true
-  // Simulate API call
-  await new Promise((resolve) => setTimeout(resolve, 2000))
-  isSubmitting.value = false
-  emit('confirm', [...uploadedFiles.value])
+  // Files are already uploaded immediately when selected
+  emit('confirm', {
+    files: [...uploadedFiles.value],
+    selectedBank: selectedBank.value
+  })
 }
+
+const fetchBankInfo = async () => {
+  try {
+    const response = await axios.get('/get-bank-account-information-web')
+    bankInfo.value = response.data?.info
+  } catch (error) {
+    console.error('Failed to fetch bank info:', error)
+  }
+}
+onMounted(() => {
+  fetchBankInfo()
+})
 </script>
 
 <style scoped>
@@ -163,6 +244,118 @@ async function handleConfirm() {
 
 .card-content {
   padding: 28px;
+}
+
+/* ========== Bank Selection ========== */
+.bank-section {
+  margin-bottom: 24px;
+}
+
+.bank-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(50px, 1fr));
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.bank-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  border: 2px solid #e2e8f0;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  background: #ffffff;
+  aspect-ratio: 2;
+}
+
+.bank-item:hover {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  transform: translateY(-2px);
+}
+
+.bank-item--selected {
+  border-color: #3b82f6;
+  background: #eff6ff;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+}
+
+.bank-logo {
+  width: 52px;
+  height: 52px;
+  object-fit: contain;
+  border-radius: 50%;
+  transition: transform 0.3s ease;
+}
+
+.bank-item:hover .bank-logo {
+  transform: scale(1.05);
+}
+
+/* ========== QR Code Section ========== */
+.qr-section {
+  margin-bottom: 24px;
+}
+
+.qr-container {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 20px;
+  background: #f8fafc;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+}
+
+.qr-code {
+  width: 150px;
+  height: 150px;
+  object-fit: contain;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 8px;
+  border: 1px solid #e2e8f0;
+}
+
+.qr-info {
+  flex: 1;
+}
+
+.qr-info p {
+  margin: 0 0 8px 0;
+  font-size: 14px;
+}
+
+.account-name {
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.account-number {
+  font-family: 'Courier New', monospace;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.currency {
+  color: #f97316;
+  font-weight: 600;
+}
+
+/* ========== Responsive Design ========== */
+@media (max-width: 640px) {
+  .qr-container {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .qr-code {
+    width: 100px;
+    height: 100px;
+  }
 }
 
 /* ========== Upload Section ========== */

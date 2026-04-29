@@ -30,8 +30,7 @@
               </svg>
             </div>
             <div class="receipt-file-details">
-              <span class="receipt-file-name">{{ file.name }}</span>
-              <span class="receipt-file-size">{{ formatFileSize(file.size) }}</span>
+              <span class="receipt-file-name">{{ file.split('/').pop() || file }}</span>
             </div>
             <button class="receipt-file-download" @click="downloadFile(file)" title="Download file">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
@@ -48,12 +47,12 @@
       <!-- Confirmation Details -->
       <div class="confirmation-details">
         <div class="detail-row">
-          <span class="detail-label">Confirmation ID</span>
-          <span class="detail-value">{{ confirmationId }}</span>
+          <span class="detail-label">Invoice Number</span>
+          <span class="detail-value">{{ data.invoice_no }}</span>
         </div>
         <div class="detail-row">
           <span class="detail-label">Submitted At</span>
-          <span class="detail-value">{{ formattedTimestamp }}</span>
+          <span class="detail-value">{{ formatDate(data?.paymentDate) }}</span>
         </div>
         <div class="detail-row">
           <span class="detail-label">Status</span>
@@ -79,81 +78,77 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
-
-interface FileInfo {
-  name: string
-  size: number
-  file?: File
-}
+import dayjs from 'dayjs';
+import { ref } from 'vue';
+import axios from '@/services/axios'
+import { storageURL } from '@/global-variable'
+const emit = defineEmits<{
+  loading: [isLoading: boolean]
+}>()
 
 const props = withDefaults(defineProps<{
-  files: FileInfo[]
+  files: any[]
+  data?: any
   confirmationId?: string
   submittedAt?: Date
 }>(), {
-  confirmationId: 'CNF-2026-0428-7X3K',
+  confirmationId: '',
   submittedAt: () => new Date(),
 })
 
-const formattedTimestamp = computed(() => {
-  return props.submittedAt.toLocaleDateString('en-US', {
-    month: 'long',
-    day: 'numeric',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-})
-
-function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return bytes + ' B'
-  if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB'
-  return (bytes / 1048576).toFixed(1) + ' MB'
+function formatDate(dateStr: string): string {
+  if (!dateStr) return ''
+  return dayjs(dateStr).format('MMMM D, YYYY')
 }
 
-function downloadFile(fileInfo: FileInfo) {
-  if (!fileInfo.file) return
-  const url = URL.createObjectURL(fileInfo.file)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = fileInfo.name
-  document.body.appendChild(a)
-  a.click()
-  document.body.removeChild(a)
-  URL.revokeObjectURL(url)
+
+function downloadFile(fileInfo: any) {
+
+  if (!fileInfo) return
+  const name = fileInfo.split('/').pop()
+  const link = document.createElement('a')
+  link.href = storageURL + fileInfo
+  link.target = '_blank'
+  link.download = `invoice-${name}`
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
 }
 
-function downloadReceipt() {
-  const receiptContent = [
-    '═══════════════════════════════════════',
-    '           PAYMENT RECEIPT',
-    '═══════════════════════════════════════',
-    '',
-    `Confirmation ID:  ${props.confirmationId}`,
-    `Date:             ${formattedTimestamp.value}`,
-    `Status:           Verified`,
-    '',
-    '───────────────────────────────────────',
-    'Uploaded Files:',
-    '───────────────────────────────────────',
-    ...props.files.map((f, i) => `  ${i + 1}. ${f.name} (${formatFileSize(f.size)})`),
-    '',
-    '═══════════════════════════════════════',
-    'Thank you for your payment.',
-    '═══════════════════════════════════════',
-  ].join('\n')
 
-  const blob = new Blob([receiptContent], { type: 'text/plain' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `receipt-${props.confirmationId}.txt`
-  document.body.appendChild(a)
-  a.click()
-  document.body.removeChild(a)
-  URL.revokeObjectURL(url)
+const isloading = ref(false)
+
+
+const downloadReceipt = async () => {
+  try {
+    if (!props.data) return
+    isloading.value = true
+    emit('loading', true)
+    const { _id } = props.data
+    if (!_id) {
+      console.error('No invoice ID found')
+      return
+    }
+    const response = await axios.get(`/generate-invoice-or-receipt/${_id}?type=receipt`)
+    // Handle direct URL response from backend
+    if (response.data) {
+      const link = document.createElement('a')
+      link.href = response.data
+      link.target = '_blank'
+      link.download = `invoice-${_id}.pdf`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+    }
+  } catch (error) {
+    console.error('Error downloading receipt:', error)
+  } finally {
+    isloading.value = false
+    emit('loading', false)
+  }
 }
+
+
 </script>
 
 <style scoped>

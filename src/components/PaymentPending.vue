@@ -66,14 +66,13 @@
           <div v-for="(file, index) in files" :key="index" class="pending-file-item">
             <div class="pending-file-icon">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                <path d="M14 2H6C4.9 2 4 2.9 4 4V20C4 21.1 4.9 22 6 22H18C19.1 22 20 21.1 20 20V8L14 2Z"
-                  fill="#EFF6FF" stroke="#3B82F6" stroke-width="1.5" />
+                <path d="M14 2H6C4.9 2 4 2.9 4 4V20C4 21.1 4.9 22 6 22H18C19.1 22 20 21.1 20 20V8L14 2Z" fill="#EFF6FF"
+                  stroke="#3B82F6" stroke-width="1.5" />
                 <path d="M14 2V8H20" stroke="#3B82F6" stroke-width="1.5" />
               </svg>
             </div>
             <div class="pending-file-details">
-              <span class="pending-file-name">{{ file.name }}</span>
-              <span class="pending-file-size">{{ formatFileSize(file.size) }}</span>
+              <span class="pending-file-name">{{ file.split('/').pop() || file }}</span>
             </div>
             <div class="pending-file-status">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
@@ -91,7 +90,8 @@
           <circle cx="12" cy="12" r="10" stroke="#3b82f6" stroke-width="1.5" />
           <path d="M12 8V12M12 16H12.01" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" />
         </svg>
-        <p>You will be notified once the verification is complete. Please note that it may take up to <strong>48 hours</strong> to confirm your payment.</p>
+        <p>You will be notified once the verification is complete. Please note that it may take up to <strong>48
+            hours</strong> to confirm your payment.</p>
       </div>
     </div>
   </section>
@@ -100,13 +100,8 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 
-interface FileInfo {
-  name: string
-  size: number
-}
-
 const props = withDefaults(defineProps<{
-  files: FileInfo[]
+  files: any[]
   submittedAt?: Date
 }>(), {
   submittedAt: () => new Date(),
@@ -191,10 +186,12 @@ function formatFileSize(bytes: number): string {
     transform: scale(1);
     opacity: 0.6;
   }
+
   50% {
     transform: scale(1.5);
     opacity: 0;
   }
+
   100% {
     transform: scale(1);
     opacity: 0;

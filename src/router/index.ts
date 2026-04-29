@@ -20,20 +20,20 @@ const router = createRouter({
 
 // Global navigation guard
 router.beforeEach((to, from, next) => {
-  // Check for companyId in query params and set to localStorage
-  if (to.query.companyId) {
+  // Check for paymentCode in query params and set to localStorage
+  if (to.query.paymentCode) {
     const urlParams = new URLSearchParams(to.query as any)
-    const companyIdSet = setCompanyIdFromQuery(urlParams)
+    const paymentCodeSet = setCompanyIdFromQuery(urlParams)
 
-    // If companyId was set, redirect to same route but without query parameter
-    if (companyIdSet) {
-      const queryWithoutCompanyId = { ...to.query }
-      delete queryWithoutCompanyId.companyId
+    // If paymentCode was set, redirect to same route but without query parameter
+    if (paymentCodeSet) {
+      const queryWithoutPaymentCode = { ...to.query }
+      delete queryWithoutPaymentCode.paymentCode
 
-      // Redirect to clean URL without companyId in query
+      // Redirect to clean URL without paymentCode in query
       next({
         path: to.path,
-        query: queryWithoutCompanyId,
+        query: queryWithoutPaymentCode,
         hash: to.hash
       })
       return
@@ -42,9 +42,9 @@ router.beforeEach((to, from, next) => {
 
   // Route protection logic
   if (to.name === 'home') {
-    // Check if companyId exists in localStorage
+    // Check if paymentCode exists in localStorage
     if (!hasCompanyId()) {
-      // Redirect to Hello view if no companyId found
+      // Redirect to Hello view if no paymentCode found
       next({ name: 'welcome' })
       return
     }
