@@ -129,7 +129,7 @@ const downloadReceipt = async () => {
       console.error('No invoice ID found')
       return
     }
-    const response = await axios.get(`/generate-invoice-or-receipt/${_id}?type=receipt`)
+    const response = await axios.get(`/invoices/${_id}?type=receipt`)
     // Handle direct URL response from backend
     if (response.data) {
       const link = document.createElement('a')

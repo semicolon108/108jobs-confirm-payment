@@ -202,7 +202,7 @@ const downloadInvoice = async () => {
       console.error('No invoice ID found')
       return
     }
-    const response = await axios.get(`/generate-invoice-or-receipt/${_id}?type=invoice`)
+    const response = await axios.get(`/invoices/${_id}?type=invoice`)
     // Handle direct URL response from backend
     if (response.data) {
       const link = document.createElement('a')
@@ -219,6 +219,8 @@ const downloadInvoice = async () => {
     isloading.value = false
   }
 }
+// GET /api/invoices/6ad8aba7b80a9469a8caadfa/?type=invoice
+// GET /api/invoices/6ad8aba7b80a9469a8caadfa/?type=receipt
 
 const getInvoiceUrl = async (paymentCode: string) => {
   try {
